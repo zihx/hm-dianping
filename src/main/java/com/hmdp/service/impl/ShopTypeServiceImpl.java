@@ -9,10 +9,10 @@ import com.hmdp.entity.ShopType;
 import com.hmdp.service.ShopTypeService;
 import com.hmdp.mapper.ShopTypeMapper;
 import com.hmdp.utils.RedisConstants;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Resource;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -21,19 +21,19 @@ import java.util.concurrent.TimeUnit;
 * @description 针对表【tb_shop_type】的数据库操作Service实现
 * @createDate 2024-04-16 14:03:32
 */
-@Service
+@Service("shopTypeService")
 public class ShopTypeServiceImpl extends ServiceImpl<ShopTypeMapper, ShopType>
     implements ShopTypeService{
 
-    @Autowired
+    @Resource
     private ShopTypeMapper shopTypeMapper;
 
-    @Autowired
-    private StringRedisTemplate redisTemplate;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     public Result queryTypeList() {
-        String shopTypeCache = redisTemplate.opsForValue().get(RedisConstants.CACHE_SHOP_TYPE_KEY);
+        String shopTypeCache = stringRedisTemplate.opsForValue().get(RedisConstants.CACHE_SHOP_TYPE_KEY);
         if (StrUtil.isNotBlank(shopTypeCache)) {
             List<ShopType> list = JSONUtil.toList(shopTypeCache, ShopType.class);
             return Result.ok(list);
@@ -42,7 +42,7 @@ public class ShopTypeServiceImpl extends ServiceImpl<ShopTypeMapper, ShopType>
         if (shopTypes == null) {
             return Result.fail("查询失败");
         }
-        redisTemplate.opsForValue().set(RedisConstants.CACHE_SHOP_TYPE_KEY, JSONUtil.toJsonStr(shopTypes), RedisConstants.CACHE_SHOP_TYPE_TTL, TimeUnit.MINUTES);
+        stringRedisTemplate.opsForValue().set(RedisConstants.CACHE_SHOP_TYPE_KEY, JSONUtil.toJsonStr(shopTypes), RedisConstants.CACHE_SHOP_TYPE_TTL, TimeUnit.MINUTES);
         return Result.ok(shopTypes);
     }
 }

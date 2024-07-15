@@ -11,6 +11,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -25,15 +26,15 @@ import java.util.concurrent.TimeUnit;
  */
 public class RefreshTokenInterceptor implements HandlerInterceptor {
 
-    private StringRedisTemplate redisTemplate;
+    private final StringRedisTemplate redisTemplate;
 
     public RefreshTokenInterceptor(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-//        HttpSession session = request.getSession();
-//        Object user = session.getAttribute("user");
+       // HttpSession session = request.getSession();
+       // Object user = session.getAttribute("user");
         String token = request.getHeader("authorization");
         if (StrUtil.isBlank(token)) {
             return true;

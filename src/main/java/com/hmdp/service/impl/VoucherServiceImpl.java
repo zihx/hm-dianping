@@ -7,9 +7,12 @@ import com.hmdp.entity.SeckillVoucher;
 import com.hmdp.entity.Voucher;
 import com.hmdp.service.VoucherService;
 import com.hmdp.mapper.VoucherMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.Resource;
 import java.util.List;
 
 /**
@@ -17,17 +20,19 @@ import java.util.List;
 * @description 针对表【tb_voucher】的数据库操作Service实现
 * @createDate 2024-04-16 14:03:32
 */
-@Service
+@Service("voucherService")
+@Slf4j
 public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher>
     implements VoucherService{
 
-    @Autowired
+    @Resource
     private VoucherMapper voucherMapper;
 
-    @Autowired
+    @Resource
     private SeckillVoucherMapper seckillVoucherMapper;
 
     @Override
+    @Transactional
     public void addSeckillVoucher(Voucher voucher) {
         voucherMapper.insert(voucher);
         SeckillVoucher seckillVoucher = new SeckillVoucher();

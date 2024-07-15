@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 * @description 针对表【tb_follow】的数据库操作Service实现
 * @createDate 2024-04-16 14:03:32
 */
-@Service
+@Service("followService")
 public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow>
     implements FollowService{
 

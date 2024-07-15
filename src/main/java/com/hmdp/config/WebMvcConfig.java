@@ -9,6 +9,8 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import javax.annotation.Resource;
+
 /**
  * ClassName: WebMvcConfig
  * Package: com.hmdp.config
@@ -20,8 +22,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  */
 @Configuration
 public class WebMvcConfig extends WebMvcConfigurationSupport {
-    @Autowired
-    private StringRedisTemplate redisTemplate;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -35,6 +38,6 @@ public class WebMvcConfig extends WebMvcConfigurationSupport {
                         "/user/code",
                         "/user/login"
                 ).order(1);
-        registry.addInterceptor(new RefreshTokenInterceptor(redisTemplate)).order(0);
+        registry.addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate)).order(0);
     }
 }

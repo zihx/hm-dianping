@@ -1,9 +1,9 @@
 package com.hmdp.utils;
 
-import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -22,17 +22,16 @@ public class RedisIdWorker {
     private static final long BEGIN_TIMESTAMP = 1672531200L;
     private static final int COUNT_BITS = 32;
 
-    private StringRedisTemplate redisTemplate;
-
-    public RedisIdWorker(StringRedisTemplate redisTemplate) {
-        this.redisTemplate = redisTemplate;
-    }
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     public Long nextId(String keyPrefix) {
         LocalDateTime now = LocalDateTime.now();
         long timestamp = now.toEpochSecond(ZoneOffset.UTC) - BEGIN_TIMESTAMP;
+        // long count = redisTemplate.opsForValue().increment("icr:" + keyPrefix);
         String date = now.format(DateTimeFormatter.ofPattern("yyyy:MM:dd"));
-        long count = redisTemplate.opsForValue().increment("icr:" + keyPrefix + ":" + date);
+        // 单个key的自增长具有上限（2^64），因此加上一个日期，也方便统计一天内的数量
+        long count = stringRedisTemplate.opsForValue().increment("icr:" + keyPrefix + ":" + date);
         return timestamp << COUNT_BITS | count;
     }
 
