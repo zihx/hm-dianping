@@ -12,15 +12,20 @@ import com.hmdp.service.SeckillVoucherService;
 import com.hmdp.service.VoucherOrderService;
 import com.hmdp.mapper.VoucherOrderMapper;
 import com.hmdp.utils.RedisIdWorker;
+import com.hmdp.utils.SimpleRedisLock;
 import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.concurrent.TimeUnit;
 
 /**
 * @author lenovo
@@ -33,13 +38,17 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     implements VoucherOrderService{
 
     @Resource
-    private VoucherOrderMapper voucherOrderMapper;
+    private SeckillVoucherService seckillVoucherService;
     @Resource
     private SeckillVoucherMapper seckillVoucherMapper;
     @Resource
     private RedisIdWorker redisIdWorker;
     @Resource
-    private SeckillVoucherService seckillVoucherService;
+    private StringRedisTemplate stringRedisTemplate;
+    @Resource
+    private VoucherOrderMapper voucherOrderMapper;
+    @Resource
+    private RedissonClient redissonClient;
 
     @Override
     public Result seckillVoucher(Long voucherId) {
@@ -62,18 +71,49 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         // if (count > 0) {
         //     return Result.fail("您已购买过此代金券");
         // }
-
+        Long userId = UserHolder.getUser().getId();
         // 满足条件，创建订单
-        synchronized (UserHolder.getUser().getId().toString().intern()) {
-            // 方法调用是通过代理进行才能触发@Transactional
-            // 如果一个方法在其所在类内部调用另一个也带有@Transactional注解的方法，那么这个调用不会被视为一个代理调用。
-            // return createVoucherOrder(voucherId);
+        // synchronized (userId.toString().intern()) {
+        //     // 方法调用是通过代理进行才能触发@Transactional
+        //     // 如果一个方法在其所在类内部调用另一个也带有@Transactional注解的方法，那么这个调用不会被视为一个代理调用。
+        //     // return createVoucherOrder(voucherId);
+        //
+        //     // 获取代理对象
+        //     VoucherOrderService voucherOrderService = (VoucherOrderService) AopContext.currentProxy();
+        //     return voucherOrderService.createVoucherOrder(voucherId);
+        // }
 
-            // 获取代理对象
+        // synchronized在分布式场景并不适用
+        // SimpleRedisLock simpleRedisLock = new SimpleRedisLock("order" + userId, stringRedisTemplate);
+        // boolean isLock = simpleRedisLock.tryLock(1200);
+        // if (!isLock) {
+        //     return Result.fail("不允许重复下单");
+        // }
+        // try {
+        //     VoucherOrderService voucherOrderService = (VoucherOrderService) AopContext.currentProxy();
+        //     return voucherOrderService.createVoucherOrder(voucherId);
+        // } catch (Exception e) {
+        //     throw new RuntimeException(e);
+        // } finally {
+        //     simpleRedisLock.unlock();
+        // }
+
+        RLock lock = redissonClient.getLock("lock:order:" + userId);
+        try {
+            // 获取锁的最大等待时间（期间失败会重试），锁自动施放时间，时间单位
+            // boolean isLock = lock.tryLock(1, 10, TimeUnit.SECONDS);
+            // 失败直接返回,锁自动释放时间为30s
+            boolean isLock = lock.tryLock();
+            if (!isLock) {
+                return Result.fail("不允许重复下单");
+            }
             VoucherOrderService voucherOrderService = (VoucherOrderService) AopContext.currentProxy();
             return voucherOrderService.createVoucherOrder(voucherId);
+        } catch (RuntimeException e) {
+            throw new RuntimeException(e);
+        } finally {
+            lock.unlock();
         }
-
     }
 
     // 当synchronized修饰一个方法时，它会确保一次只有一个线程可以执行该方法。
