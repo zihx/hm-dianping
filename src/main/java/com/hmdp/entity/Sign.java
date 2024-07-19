@@ -8,8 +8,8 @@ import lombok.Data;
 /**
  * @TableName tb_sign
  */
-@TableName(value ="tb_sign")
 @Data
+@TableName(value ="tb_sign")
 public class Sign implements Serializable {
     private Long id;
 

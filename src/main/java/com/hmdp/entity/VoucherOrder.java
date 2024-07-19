@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
  * @since 2021-12-22
  */
 @Data
-@EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
 @TableName("tb_voucher_order")
 public class VoucherOrder implements Serializable {

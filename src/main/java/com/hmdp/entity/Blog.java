@@ -20,7 +20,6 @@ import java.time.LocalDateTime;
  * @since 2021-12-22
  */
 @Data
-@EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
 @TableName("tb_blog")
 public class Blog implements Serializable {
@@ -30,7 +29,6 @@ public class Blog implements Serializable {
     /**
      * 主键
      */
-    @TableId(value = "id", type = IdType.AUTO)
     private Long id;
     /**
      * 商户id

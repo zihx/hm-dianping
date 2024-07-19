@@ -23,6 +23,9 @@ spring:
 
 mybatis-plus:
   type-aliases-package: com.hmdp.entity # 别名扫描包
+  global-config:
+    db-config:
+      id-type: AUTO
 
 logging:
   level:

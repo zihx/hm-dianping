@@ -47,6 +47,9 @@ import java.util.concurrent.*;
 public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder>
     implements VoucherOrderService{
 
+    // 子线程无法直接获取代理对象，由父线程赋值子线程使用
+    private VoucherOrderService voucherOrderService;
+
     @Resource
     private SeckillVoucherService seckillVoucherService;
     @Resource
@@ -60,8 +63,13 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Resource
     private RedissonClient redissonClient;
 
-    // 子线程无法获取代理对象
-    private VoucherOrderService voucherOrderService;
+    // 获取lua脚本
+    private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
+    static {
+        SECKILL_SCRIPT = new DefaultRedisScript<>();
+        SECKILL_SCRIPT.setLocation(new ClassPathResource("seckill.lua"));
+        SECKILL_SCRIPT.setResultType(Long.class);
+    }
 
     // redis基于Stream的消息队列
     @Override
@@ -85,6 +93,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         return Result.ok(orderId);
     }
 
+    // 阻塞队列
+    private BlockingQueue<VoucherOrder> orderTasks = new ArrayBlockingQueue<>(1024 * 1024);
+
     // 性能优化，Java阻塞队列实现消息队列
     // @Override
     // public Result seckillVoucher(Long voucherId) {
@@ -107,14 +118,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     //     return Result.ok(orderId);
     // }
 
-    private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
-    static {
-        SECKILL_SCRIPT = new DefaultRedisScript<>();
-        SECKILL_SCRIPT.setLocation(new ClassPathResource("seckill.lua"));
-        SECKILL_SCRIPT.setResultType(Long.class);
-    }
-    // 阻塞队列
-    private BlockingQueue<VoucherOrder> orderTasks = new ArrayBlockingQueue<>(1024 * 1024);
     // 线程池
     private static final ExecutorService SECKILL_ORDER_EXECUTOR = Executors.newSingleThreadExecutor();
 
@@ -195,6 +198,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     // }
 
     private void handleVoucherOrder(VoucherOrder voucherOrder) {
+        // 不是同一线程，无法从UserHolder中获取用户id
         Long userId = voucherOrder.getUserId();
         RLock lock = redissonClient.getLock("lock:order:" + userId);
         boolean isLock = lock.tryLock();

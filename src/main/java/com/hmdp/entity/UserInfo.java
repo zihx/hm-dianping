@@ -20,7 +20,6 @@ import java.time.LocalDateTime;
  * @since 2021-12-24
  */
 @Data
-@EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
 @TableName("tb_user_info")
 public class UserInfo implements Serializable {

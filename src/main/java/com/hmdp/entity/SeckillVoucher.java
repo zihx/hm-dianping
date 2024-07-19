@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
  * @since 2022-01-04
  */
 @Data
-@EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
 @TableName("tb_seckill_voucher")
 public class SeckillVoucher implements Serializable {
@@ -29,6 +28,7 @@ public class SeckillVoucher implements Serializable {
     /**
      * 关联的优惠券的id
      */
+    // 默认id为主键，主键不为id时需要使用@TableId
     @TableId(value = "voucher_id", type = IdType.INPUT)
     private Long voucherId;
 
