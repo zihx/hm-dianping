@@ -23,4 +23,16 @@
         liked,comments,create_time,
         update_time
     </sql>
+    <select id="queryBlogByIds" resultMap="BaseResultMap">
+        select id,shop_id,user_id,title,images,content,liked,comments,create_time,update_time
+        from tb_blog
+        where id in
+        <foreach collection="blogIdList" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        order by field(id,
+                 <foreach collection="blogIdList" item="id" separator=",">
+                    #{id}
+                 </foreach> )
+    </select>
 </mapper>

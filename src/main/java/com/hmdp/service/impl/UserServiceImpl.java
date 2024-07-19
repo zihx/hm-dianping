@@ -91,6 +91,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         userMapper.insert(user);
         return user;
     }
+
+    @Override
+    public Result queryById(Long id) {
+        User user = userMapper.selectById(id);
+        if (user == null) {
+            return Result.fail("用户不存在");
+        }
+        UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
+        return Result.ok(userDTO);
+    }
 }
 
 

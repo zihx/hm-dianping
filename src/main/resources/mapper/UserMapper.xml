@@ -19,6 +19,7 @@
         nick_name,icon,create_time,
         update_time
     </sql>
+
     <select id="queryBlogLikes" resultMap="BaseResultMap">
         select id,phone,password,nick_name,icon,create_time,update_time
         from tb_user

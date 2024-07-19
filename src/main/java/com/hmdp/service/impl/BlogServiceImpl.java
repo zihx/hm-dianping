@@ -7,9 +7,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.Result;
+import com.hmdp.dto.ScrollResult;
 import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.Blog;
+import com.hmdp.entity.Follow;
 import com.hmdp.entity.User;
+import com.hmdp.mapper.FollowMapper;
 import com.hmdp.mapper.UserMapper;
 import com.hmdp.service.BlogService;
 import com.hmdp.mapper.BlogMapper;
@@ -19,9 +22,11 @@ import com.hmdp.utils.SystemConstants;
 import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -45,6 +50,27 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
     private StringRedisTemplate stringRedisTemplate;
     @Resource
     private UserService userService;
+    @Resource
+    private FollowMapper followMapper;
+
+    @Override
+    public Result saveBlog(Blog blog) {
+        // 获取登录用户
+        Long userId = UserHolder.getUser().getId();
+        blog.setUserId(userId);
+        // 保存探店博文
+        int insert = blogMapper.insert(blog);
+        if (insert < 1) {
+            return Result.fail("发布笔记失败");
+        }
+        List<Follow> follows = followMapper.selectList(new LambdaQueryWrapper<Follow>().eq(Follow::getFollowUserId, userId));
+        Long blogId = blog.getId();
+        for (Follow follow : follows) {
+            stringRedisTemplate.opsForZSet().add(RedisConstants.FEED_KEY + follow.getUserId(), blogId.toString(), System.currentTimeMillis());
+        }
+        // 返回id
+        return Result.ok(blogId);
+    }
 
     @Override
     public Result queryHotBlog(Integer current) {
@@ -53,6 +79,9 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
                 new LambdaQueryWrapper<Blog>().orderByDesc(Blog::getLiked));
         // 获取当前页数据
         List<Blog> records = page.getRecords();
+        if (records == null || records.isEmpty()) {
+            return Result.fail("暂无数据");
+        }
         // 查询用户
         records.forEach(blog -> {
             queryBlogUser(blog);
@@ -85,8 +114,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
     }
 
     private void queryBlogUser(Blog blog) {
-        Long userId = blog.getUserId();
-        User user = userMapper.selectById(userId);
+        User user = userMapper.selectById(blog.getUserId());
         blog.setName(user.getNickName());
         blog.setIcon(user.getIcon());
     }
@@ -113,14 +141,69 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
     @Override
     public Result queryBlogLikes(Long id) {
         String key = RedisConstants.BLOG_LIKED_KEY + id;
+        // 左闭右闭[0, 4]
         Set<String> top5 = stringRedisTemplate.opsForZSet().range(key, 0, 4);
         if (top5 == null || top5.isEmpty()) {
             return Result.ok(Collections.emptyList());
         }
         List<Long> idList = top5.stream().map(Long::parseLong).collect(Collectors.toList());
+        // MySQL in查询 顺序遍历user表看id是否在idList中
+        // 无法按idList中的顺序返回用户
+        // 需要使用 field 特殊处理
         List<User> userList = userMapper.queryBlogLikes(idList);
+        if (userList == null || userList.isEmpty()) {
+            return Result.ok(Collections.emptyList());
+        }
         List<UserDTO> userDTOList = userList.stream().map(user -> BeanUtil.copyProperties(user, UserDTO.class)).collect(Collectors.toList());
         return Result.ok(userDTOList);
+    }
+
+    @Override
+    public Result queryBlogByUserId(Integer current, Long userId) {
+        Page<Blog> page = blogMapper.selectPage(
+                new Page<>(current, SystemConstants.MAX_PAGE_SIZE),
+                new LambdaQueryWrapper<Blog>().eq(Blog::getUserId, userId));
+        List<Blog> records = page.getRecords();
+        if (records == null || records.isEmpty()) {
+            return Result.ok(Collections.emptyList());
+        }
+        return Result.ok(records);
+    }
+
+    @Override
+    public Result queryBlogOfFollow(Long max, Integer offset) {
+        Long userId = UserHolder.getUser().getId();
+        Set<ZSetOperations.TypedTuple<String>> typedTuples = stringRedisTemplate.opsForZSet()
+                .reverseRangeByScoreWithScores(RedisConstants.FEED_KEY + userId, 0, max, offset, 2);
+        if (typedTuples == null || typedTuples.isEmpty()) {
+            return Result.ok();
+        }
+        long minTime = 0;
+        int count = 1;
+        List<Long> blogIdList = new ArrayList<>(typedTuples.size());
+        for (ZSetOperations.TypedTuple<String> tuple : typedTuples) {
+            blogIdList.add(Long.parseLong(tuple.getValue()));
+            long time = tuple.getScore().longValue();
+            if (time == minTime) {
+                count++;
+            } else {
+                minTime = time;
+                count = 1;
+            }
+        }
+        List<Blog> blogList = blogMapper.queryBlogByIds(blogIdList);
+        if (blogList == null || blogList.isEmpty()) {
+            return Result.ok();
+        }
+        blogList.forEach(blog -> {
+            queryBlogUser(blog);
+            isBlogLiked(blog);
+        });
+        ScrollResult scrollResult = new ScrollResult();
+        scrollResult.setList(blogList);
+        scrollResult.setOffset(count);
+        scrollResult.setMinTime(minTime);
+        return Result.ok(scrollResult);
     }
 }
 
