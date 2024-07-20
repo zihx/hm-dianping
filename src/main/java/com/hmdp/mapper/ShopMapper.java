@@ -3,6 +3,8 @@ package com.hmdp.mapper;
 import com.hmdp.entity.Shop;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
+import java.util.List;
+
 /**
 * @author lenovo
 * @description 针对表【tb_shop】的数据库操作Mapper
@@ -11,6 +13,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 */
 public interface ShopMapper extends BaseMapper<Shop> {
 
+    List<Shop> queryShopByIds(List<Long> shopIdList);
 }
 
 

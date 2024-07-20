@@ -29,4 +29,17 @@
         sold,comments,score,
         open_hours,create_time,update_time
     </sql>
+    <select id="queryShopByIds" resultMap="BaseResultMap">
+        select id,name,type_id,images,area,address,x,y,avg_price,sold,comments,score,open_hours,create_time,update_time
+        from tb_shop
+        where id in
+        <foreach collection="shopIdList" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        order by field(id,
+                 <foreach collection="shopIdList" item="id" separator=",">
+                    #{id}
+                 </foreach>
+                 )
+    </select>
 </mapper>
